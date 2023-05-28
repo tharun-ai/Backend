@@ -1,6 +1,9 @@
 
+using Core.Interfaces;
 using Infrastructure.Data;
+using Infrastructure.Data.Migrations;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -12,6 +15,7 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 builder.Services.AddDbContext<StoreContext>(options =>
   options.UseSqlite(builder.Configuration.GetConnectionString("FullStackConnection")));
+builder.Services.AddScoped<IProductRepository,ProductRepository>();
 
 var app = builder.Build();
 
@@ -27,5 +31,16 @@ app.UseHttpsRedirection();
 app.UseAuthorization();
 
 app.MapControllers();
+using var scope=app.Services.CreateScope();
+var services=scope.ServiceProvider;
+var context=services.GetRequiredService<StoreContext>();
+var logger=services.GetRequiredService<ILogger<Program>>();
+try{
+  await context.Database.MigrateAsync();
+  await StoreContextSeed.SeedAsync(context);
+}
+catch(Exception e){
+  logger.LogError(e,"An error occured during migrations");
+}
 
 app.Run();
