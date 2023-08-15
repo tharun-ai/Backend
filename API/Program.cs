@@ -1,12 +1,16 @@
 
 using API.Errors;
+using API.helpers;
 using API.Middleware;
+using API.Services;
+using AutoMapper;
 using Core.Interfaces;
 using Infrastructure.Data;
 using Infrastructure.Data.Migrations;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Logging;
+
+
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -20,6 +24,9 @@ builder.Services.AddDbContext<StoreContext>(options =>
   options.UseSqlite(builder.Configuration.GetConnectionString("FullStackConnection")));
 builder.Services.AddScoped<IProductRepository,ProductRepository>();
 builder.Services.AddScoped(typeof(IGenericRepository<>),typeof(GenericRepository<>));
+builder.Services.AddTransient(typeof(IPaginationServices<,>),typeof(PaginationService<,>));
+builder.Services.AddAutoMapper(typeof(MappingProfile));
+builder.Services.AddTransient<Core.Interfaces.IUnitOfWork, UnitOfWork> ();
 builder.Services.Configure<ApiBehaviorOptions>(options=>{
   options.InvalidModelStateResponseFactory=actionContext=>{
     var errors=actionContext.ModelState.Where(e=>e.Value.Errors.Count>0)
@@ -34,10 +41,18 @@ builder.Services.Configure<ApiBehaviorOptions>(options=>{
   };
 });
 
+builder.Services.AddCors(options => {
+    options.AddPolicy("AllowAll", policy => {
+        policy.AllowAnyOrigin()
+              .AllowAnyMethod()
+              .AllowAnyHeader();
+    });
+});
+
 var app = builder.Build();
 
 
-
+app.UseCors("AllowAll");
 // Configure the HTTP request pipeline.
 
 app.UseMiddleware<ExceptionMiddleware>();
